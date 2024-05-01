@@ -23,6 +23,7 @@ export class InputArea extends HTMLElement {
 			return SymbolKindList.map(k => {
 				return /*html*/`
 					<li class="symbol-item" data-symbol="${k}">
+					
 						<span class="icon codicon codicon-${mapIcon(k)}" data-kind="${k}"></span>
 						<span class="symbol-name">${camelToDash(k)}</span>
 					</li>
