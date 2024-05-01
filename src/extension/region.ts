@@ -101,7 +101,7 @@ export class RegionProvider implements DocumentSymbolProvider, FoldingRangeProvi
 			color: new ThemeColor('symbolIcon.keywordForeground')
 		});
 		this.nameDecorationType = window.createTextEditorDecorationType(regionHighlightStyle?.name || {
-			color: new ThemeColor('symbolIcon.variableForeground')
+			color: new ThemeColor('symbolIcon.enumeratorMemberForeground')
 		});
 		this.descriptionDecorationType = window.createTextEditorDecorationType(regionHighlightStyle?.description || {
 		});
@@ -115,7 +115,7 @@ export class RegionProvider implements DocumentSymbolProvider, FoldingRangeProvi
 		});
 		this.nameDecorationType.dispose();
 		this.nameDecorationType = window.createTextEditorDecorationType(regionHighlightStyle?.name || {
-			color: new ThemeColor('symbolIcon.variableForeground')
+			color: new ThemeColor('symbolIcon.enumeratorMemberForeground')
 		});
 		this.descriptionDecorationType.dispose();
 		this.descriptionDecorationType = window.createTextEditorDecorationType(regionHighlightStyle?.description || {

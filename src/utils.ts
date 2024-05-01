@@ -109,8 +109,9 @@ export function camelToDash(str: string): string {
 export function mapIcon(kind: SymbolKindStr): string {
 	let iconName = `symbol-${camelToDash(kind)}`;
 	// custom symbol
+	
 	if (kind === '__om_Region__') {
-		iconName = 'folder';
+		iconName = 'symbol-namespace';
 	}
 	if (kind === '__om_Tag__') {
 		iconName = 'tag';

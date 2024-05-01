@@ -1,5 +1,5 @@
 import { config } from './config';
-import { commands, DocumentSymbol, ExtensionContext, TextDocument, Uri, WebviewView, WebviewViewProvider, window, Range, Selection, Position, Diagnostic, DiagnosticSeverity, CancellationTokenSource } from 'vscode';
+import { commands, DocumentSymbol, ExtensionContext, TextDocument, Uri, WebviewView, WebviewViewProvider, window, Range, Selection, Position, Diagnostic, DiagnosticSeverity, CancellationTokenSource, SymbolKind } from 'vscode';
 import { Msg, UpdateMsg, Op, UpdateOp, DeleteOp, InsertOp, SymbolNode, MoveOp, PinStatus, FocusMsg, Sortby } from '../common';
 import { WorkspaceSymbols } from './workspace';
 import { RegionProvider } from './region';
@@ -27,7 +27,7 @@ export class OutlineView implements WebviewViewProvider {
 	/** The uri of the directory containing this extension. */
 	private extensionUri: Uri;
 
-	private outlineTree: OutlineTree | undefined;
+	public outlineTree: OutlineTree | undefined;
 
 	private focusing: Set<SymbolNode> = new Set();
 
@@ -47,12 +47,38 @@ export class OutlineView implements WebviewViewProvider {
 
 	private sortby: Sortby = Sortby.position;
 
+	private context: ExtensionContext;
+
+	private toggleHiddenNotCommentSymbol:boolean
+
 	constructor(init: OutlineViewInit) {
 		this.extensionUri = init.context.extensionUri;
+		this.context = init.context;
 		this.workspaceSymbols = init.workspaceSymbols;
 		this.regionProvider = init.regionProvider;
 		this.initialSearch = init.initialSearch || false;
 		this.sortby = init.sortBy || Sortby.position;
+		this.toggleHiddenNotCommentSymbol =  this.context.globalState.get('toggleHiddenNotCommentSymbol', false);
+
+		this.handleStateChange() 
+		
+		commands.registerCommand('outline-map.toggleHiddenNotCommentSymbolNotifyStateChange', this.handleStateChange.bind(this));
+
+
+
+	}
+
+	handleStateChange() {
+		// 初始化时也根据当前状态设置
+		const currentState = this.context.globalState.get('toggleHiddenNotCommentSymbol', false);
+
+		this.toggleHiddenNotCommentSymbol = currentState;
+		if (this.outlineTree) {
+			this.outlineTree.toggleHiddenNotCommentSymbol = currentState;
+			// this.outlineTree.updateSymbols();
+		}
+		this.build()
+
 	}
 
 	pin(pinStatus: PinStatus) {
@@ -92,26 +118,51 @@ export class OutlineView implements WebviewViewProvider {
 		});
 		this.view.webview.onDidReceiveMessage((msg: Msg) => {
 			switch (msg.type) {
-			case 'goto': {
-				const res = commands.executeCommand(
-					'editor.action.goToLocations',
-					window.activeTextEditor?.document.uri,
-					// vscode doesn't seem to recognize `msg.data.position` as a `Position` object
-					// so we have to create a new one
-					new Position(
-						msg.data.position.line,
-						msg.data.position.character,
-					), [], 'goto', ''
-				);
-				if (config.findRefEnabled()) {
-					res.then(() => {
-						commands.executeCommand(config.findRefUseFindImpl() ?
-							'references-view.findImplementations' : 'references-view.findReferences').then(ref=>{
-							config.debug() && console.log(ref);
+				case 'goto': {
+					const res = commands.executeCommand(
+						'editor.action.goToLocations',
+						window.activeTextEditor?.document.uri,
+						// vscode doesn't seem to recognize `msg.data.position` as a `Position` object
+						// so we have to create a new one
+						new Position(
+							msg.data.position.line,
+							msg.data.position.character,
+						), [], 'goto', ''
+					);
+					if (config.findRefEnabled()) {
+						res.then(() => {
+							commands.executeCommand(config.findRefUseFindImpl() ?
+								'references-view.findImplementations' : 'references-view.findReferences').then(ref => {
+									config.debug() && console.log(ref);
+								});
 						});
-					});
+					}
 				}
-			}
+				case 'expand': {
+					//  判断是否要折叠, 如果要的话, 就把代码中相应的部分折叠
+					const editor = window.activeTextEditor;
+					if (!editor) {
+						console.log('No active text editor');
+						return;
+					}
+					const { position, expand } = msg.data;
+					const start = new Position(position.line, 0);
+					editor.selection = new Selection(start, start);
+					if (expand == undefined){
+						return 
+					}
+					if (expand) {
+						// console.log(position,"unfold");
+						
+						commands.executeCommand('editor.unfold', position);
+					} else {
+						// console.log(position,"fold");
+						commands.executeCommand('editor.fold', position);
+					}
+
+
+					
+				}
 			}
 		});
 	}
@@ -147,6 +198,7 @@ export class OutlineView implements WebviewViewProvider {
 	 * Focuses the outline on the current selection.
 	 */
 	focus(selections: readonly Selection[]) {
+		// return
 		if (!this.outlineTree) return;
 		if (this.pinStatus === PinStatus.frozen) return;
 		// check if the selection has changed
@@ -243,7 +295,7 @@ export class OutlineView implements WebviewViewProvider {
 					}
 				});
 			}
-			else if(config.expand() === 'cursor' && window.activeTextEditor?.selection) {
+			else if (config.expand() === 'cursor' && window.activeTextEditor?.selection) {
 				const { inRange: cursorInRange, involves: cursorInvolves } = this.outlineTree.findNodesIn(window.activeTextEditor.selection);
 				cursorInRange.forEach((node) => {
 					node.expand = true;
@@ -435,7 +487,9 @@ export class OutlineView implements WebviewViewProvider {
 		if (!this.isValidDocument(textDocument)) { // Switched to a non-supported document like output
 			return;
 		}
+		
 		const newOutlineTree = new OutlineTree(textDocument, this.regionProvider, this.sortby);
+		newOutlineTree.toggleHiddenNotCommentSymbol = this.toggleHiddenNotCommentSymbol
 		newOutlineTree.updateSymbols().then(() => {
 			const newNodes = newOutlineTree.getNodes();
 			if (!newNodes || newNodes.length === 0) {
@@ -477,6 +531,85 @@ export class OutlineView implements WebviewViewProvider {
  * Provides the outline tree.
  * 
  */
+
+function recursiveInvisbleNotCommentSymbol(textDocument: TextDocument, symbols: DocumentSymbol[]) {
+	// 遍历 symbol的detail有没有值,没有值就去除这个symbol
+	for (let i = symbols.length - 1; i >= 0; i--){
+		if (symbols[i].detail === ''){
+			symbols.splice(i, 1);
+		} else if (symbols[i].children) {
+			recursiveInvisbleNotCommentSymbol(textDocument, symbols[i].children);
+		}
+	}
+
+}
+
+
+function recursiveModificationSymbols(textDocument: TextDocument, symbols: DocumentSymbol[]) {
+	for (const symbol of symbols) {
+		if (textDocument.languageId === 'javascript' || textDocument.languageId === 'typescript') {
+			// 	for(let)
+			// console.log(this.textDocument.languageId );
+			if (symbol.kind === SymbolKind.Variable) {
+				const lineString = textDocument.lineAt(symbol.range.start.line).text;
+				// 如何当前行包含有const字符,就把kind属性改成 Constant属性
+				if (lineString.includes('const')) {
+					symbol.kind = SymbolKind.Constant;
+				}
+			}
+			// 如果是enum类型, 那么它的children类型都改成constant 
+			if (symbol.kind === SymbolKind.Enum) {
+				symbol.children.forEach(child => {
+					child.kind = SymbolKind.Constant;
+				});
+			}
+			// 如果是常量类型,判断其所在的那一行是否存在 type 关键字, 如果有 那么将它的类型改成Key
+			if (symbol.kind === SymbolKind.Variable) {
+				const lineString = textDocument.lineAt(symbol.range.start.line).text;
+				if (lineString.includes('type ')) {
+					symbol.kind = SymbolKind.Key;
+				}
+			}
+
+		}
+
+		if (textDocument.languageId === 'python'
+			|| textDocument.languageId === 'javascript'
+			|| textDocument.languageId === 'typescript'
+		) {
+			// 读取前一行的内容, 如果是单行注释, 就将symbol.detail 改成注释内容
+			if (symbol.range.start.line != 0) {
+				const lineString = textDocument.lineAt(symbol.range.start.line - 1).text;
+				const commentValue: { [key: string]: string } = {
+					'python': '#',
+					'javascript': '//',
+					'typescript': '//'
+				};
+
+				const languageId: keyof typeof commentValue = textDocument.languageId as keyof typeof commentValue;
+
+				// 正则判断并提取注释内容,舍弃注释符号和前后空格
+				const reg = new RegExp(`${commentValue[languageId]}\\s*(.*)\\s*`);
+				if (reg.test(lineString)
+					&& !lineString.includes("# group")
+					&& !lineString.includes("# endgroup")
+					&& !lineString.includes("# tag")
+				) {
+					const comment = lineString.match(reg);
+					if (comment) {
+						symbol.detail = comment[1];
+					}
+				}
+			}
+		}
+
+
+		if (symbol.children) {
+			recursiveModificationSymbols(textDocument, symbol.children);
+		}
+	}
+}
+
 export class OutlineTree {
 
 	private textDocument: TextDocument;
@@ -484,6 +617,8 @@ export class OutlineTree {
 	private regionProvider?: RegionProvider;
 
 	private nodes: SymbolNode[] = [];
+
+	public toggleHiddenNotCommentSymbol: boolean = false
 
 	/** The maximum number of times to try to update the symbols before giving up. */
 	private readonly MAX_ATTEMPTS = 10;
@@ -512,11 +647,15 @@ export class OutlineTree {
 			this.textDocument.uri,
 		)) || [];
 
+		recursiveModificationSymbols(this.textDocument, docSymbols)
+
 		// Get symbols from region provider if this provider is not registered to vscode
 		const regionSymbols = deepClone(
 			this.regionProvider
 				?.provideDocumentSymbols(this.textDocument, new CancellationTokenSource().token)
 		);
+
+
 
 		if (regionSymbols) {
 			if ('then' in regionSymbols) {
@@ -527,12 +666,20 @@ export class OutlineTree {
 			}
 		}
 
-		if (docSymbols) {
+		if (this.toggleHiddenNotCommentSymbol) {
+			recursiveInvisbleNotCommentSymbol(this.textDocument, docSymbols as DocumentSymbol[])
+		}
+
+
+	if (docSymbols) {
 			config.debug() && console.log(`[Outline-map]: Got symbols from ${this.textDocument.uri.toString()}.`, docSymbols);
 			this.nodes = SymbolNode.fromDocumentSymbols(docSymbols, this.sortBy);
 			// Reset attempts
 			this.attempts = 0;
 		}
+
+
+
 		// Sometimes the symbol provider is not loaded yet when the command is executed
 		// So we try again a few times
 		// See https://github.com/microsoft/vscode/issues/169566

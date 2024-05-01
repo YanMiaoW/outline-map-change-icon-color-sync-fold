@@ -41,6 +41,29 @@ export function activate(context: ExtensionContext) {
 		initialSearch: context.globalState.get('searchField', false),
 	});
 
+
+	let globalState = context.globalState;
+
+
+	function toggleHiddenNotCommentSymbolCommand(outlineView:OutlineView, globalState:any) {
+		// 这里 'toggleHiddenNotCommentSymbol' 默认为 false
+		const currentState = globalState.get('toggleHiddenNotCommentSymbol', false);
+		globalState.update('toggleHiddenNotCommentSymbol', !currentState);
+	
+		// 在这里加入您要切换的 outlineView 可见性逻辑，
+		// 取决于您的outlineView如何处理这些状态
+		// outlineView.toggleVisibility(!currentState);
+		// if (outlineView.outlineTree){
+		// 	outlineView.outlineTree.toggleHiddenNotCommentSymbol = !currentState;
+		// 	outlineView.outlineTree.updateSymbols()
+		// }
+		// outlineView.build()
+		commands.executeCommand('outline-map.toggleHiddenNotCommentSymbolNotifyStateChange', !currentState);
+		window.showInformationMessage(' Toggler Hidden Not Comment Symbol : ' + (!currentState ? 'Off' : 'ON'));
+	}
+
+	context.subscriptions.push(commands.registerCommand("outline-map.toggleHiddenNotCommentSymbol", toggleHiddenNotCommentSymbolCommand.bind(null, outlineView, globalState)));
+
 	context.subscriptions.push(
 		window.registerWebviewViewProvider('outline-map-view', outlineView),
 		registerDocumentSwitchEvent(outlineView),
@@ -74,7 +97,7 @@ function initWorkspaceSymbols(context: ExtensionContext) {
 	});
 	context.subscriptions.push(
 		workspace.onDidDeleteFiles(event => { // File delete
-			workspaceSymbols?.removeDocuments(event.files);
+			workspaceSymbols?.removeDocuments(event.files); 
 		}),
 		workspace.onDidRenameFiles(event => { // File rename
 			workspaceSymbols?.renameDocuments(event.files);
@@ -131,7 +154,7 @@ function registerCursorMoveEvent(outlineView: OutlineView) {
 	return window.onDidChangeTextEditorSelection(debounce((event: TextEditorSelectionChangeEvent) => {
 		outlineView.focus(event.selections);
 		if (window.activeTextEditor?.visibleRanges) {
-			outlineView.updateViewPort(window.activeTextEditor.visibleRanges[0]);
+			// outlineView.updateViewPort(window.activeTextEditor.visibleRanges[0]);
 		}
 		if (config.follow() === 'cursor') {
 			outlineView.postMessage({

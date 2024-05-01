@@ -15,12 +15,12 @@ export class SymbolNode {
 	/** More detail for this symbol, e.g. the signature of a function. */
 	detail: string;
 	/** The range enclosing this symbol not including leading/trailing whitespace but everything else, e.g. comments and code. */
-	range: {start: Position, end: Position};
+	range: { start: Position, end: Position };
 	/**
 	 * The range that should be selected and reveal when this symbol is being picked, e.g. the name of a function.
 	 * Must be contained by the {@linkcode DocumentSymbol.range range}.
 	 */
-	selectionRange: {start: Position, end: Position};
+	selectionRange: { start: Position, end: Position };
 	/** Indicates if the node is expanded. */
 	expand: boolean;
 	/** Indicates if the node is in viewport. */
@@ -38,7 +38,7 @@ export class SymbolNode {
 	 * Creates a new SymbolNode.
 	 * @param docSymbol The DocumentSymbol to create the SymbolNode from.
 	 */
-	constructor (docSymbol: DocumentSymbol) {
+	constructor(docSymbol: DocumentSymbol) {
 		this.kind = SymbolKind[docSymbol.kind] as SymbolKindStr;
 		this.name = docSymbol.name;
 		this.detail = docSymbol.detail;
@@ -89,7 +89,7 @@ export class SymbolNode {
 	 * @param parent The parent node of the tree.
 	 * @returns The root node of the tree.
 	 */
-	static fromDocumentSymbols(docSymbols: DocumentSymbol[], sortBy: Sortby = Sortby.position) : SymbolNode[] {
+	static fromDocumentSymbols(docSymbols: DocumentSymbol[], sortBy: Sortby = Sortby.position): SymbolNode[] {
 
 		const root: SymbolNode[] = [];
 		const hiddenItem = config.hiddenItem();
@@ -125,16 +125,16 @@ export class SymbolNode {
 		// Inner function to recursively transform the DocumentSymbols into SymbolNodes
 		function recursiveTransform(docSymbols: DocumentSymbol[], parent: SymbolNode | SymbolNode[], sortBy: Sortby = Sortby.position) {
 			switch (sortBy) {
-			case Sortby.name:
-				docSymbols.sort((a,b) => a.name.localeCompare(b.name));
-				break;
-			case Sortby.kind:
-				docSymbols.sort((a,b) => a.kind.toString().localeCompare(b.kind.toString()));
-				break;
-			case Sortby.position:
-			default:
-				docSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
-				break;
+				case Sortby.name:
+					docSymbols.sort((a, b) => a.name.localeCompare(b.name));
+					break;
+				case Sortby.kind:
+					docSymbols.sort((a, b) => a.kind.toString().localeCompare(b.kind.toString()));
+					break;
+				case Sortby.position:
+				default:
+					docSymbols.sort((a, b) => a.range.start.line - b.range.start.line);
+					break;
 			}
 			reconstructTree(docSymbols);
 			docSymbols.forEach((docSymbol) => {
@@ -208,37 +208,37 @@ export class DiagnosticStats {
 	 * The order is: warningInChild < warning < errorInChild < error
 	 * Set the count to -1 if there is no error or warning but there is error or warning in children.
 	 */
-	getStat(): {type: 'error' | 'warning' | 'none', count: number} {
+	getStat(): { type: 'error' | 'warning' | 'none', count: number } {
 		if (this.errorCount > 0) {
-			return {type: 'error', count: this.errorCount};
+			return { type: 'error', count: this.errorCount };
 		}
 		if (this.hasErrorInChildren) {
-			return {type: 'error', count: -1};
+			return { type: 'error', count: -1 };
 		}
 		if (this.warningCount > 0) {
-			return {type: 'warning', count: this.warningCount};
+			return { type: 'warning', count: this.warningCount };
 		}
 		if (this.hasWarnInChildren) {
-			return {type: 'warning', count: -1};
+			return { type: 'warning', count: -1 };
 		}
-		return {type: 'none', count: 0};
+		return { type: 'none', count: 0 };
 	}
 }
 
 export interface Msg {
-	type: 'update' | 'config' | 'focus' | 'scroll' | 'changeDepth' | 'pin' | 'goto' | 'clear';
+	type: 'update' | 'config' | 'focus' | 'scroll' | 'changeDepth' | 'pin' | 'goto' | 'clear' | 'expand';
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	data: any;
 }
 
-export interface UpdateMsg extends Msg{
+export interface UpdateMsg extends Msg {
 	type: 'update';
 	data: {
 		patches: Op[];
 	};
 }
 
-export interface ConfigMsg extends Msg{
+export interface ConfigMsg extends Msg {
 	type: 'config';
 	data: {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -246,33 +246,41 @@ export interface ConfigMsg extends Msg{
 	}
 }
 
-export interface FocusMsg extends Msg{
+export interface FocusMsg extends Msg {
 	type: 'focus';
 	toggle: boolean;
 }
 
-export interface ScrollMsg extends Msg{
+export interface ScrollMsg extends Msg {
 	type: 'scroll';
 	data: {
 		follow: 'in-view' | 'focus';
 	};
 }
 
-export interface ChangeDepthMsg extends Msg{
+export interface ChangeDepthMsg extends Msg {
 	type: 'changeDepth';
 	data: {
 		delta: number;
 	};
 }
 
-export interface GotoMsg extends Msg{
+export interface GotoMsg extends Msg {
 	type: 'goto';
 	data: {
 		position: Position;
 	};
 }
 
-export interface ClearMsg extends Msg{
+export interface ExpandMsg extends Msg {
+	type: 'expand';
+	data: {
+		position: Position;
+		expand: boolean;
+	};
+}
+
+export interface ClearMsg extends Msg {
 	type: 'clear';
 	data: {
 		description: string;
@@ -302,7 +310,7 @@ export type OpType = 'update' | 'delete' | 'insert' | 'move';
 
 export interface Op {
 	/** Locate the node to patch. */
-	selector: string; 
+	selector: string;
 	/** The type of operation. */
 	type: OpType;
 }
