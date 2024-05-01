@@ -49,7 +49,7 @@ export class OutlineView implements WebviewViewProvider {
 
 	private context: ExtensionContext;
 
-	private toggleHiddenNotCommentSymbol:boolean
+	private toggleHiddenNotCommentSymbol: boolean
 
 	constructor(init: OutlineViewInit) {
 		this.extensionUri = init.context.extensionUri;
@@ -58,10 +58,10 @@ export class OutlineView implements WebviewViewProvider {
 		this.regionProvider = init.regionProvider;
 		this.initialSearch = init.initialSearch || false;
 		this.sortby = init.sortBy || Sortby.position;
-		this.toggleHiddenNotCommentSymbol =  this.context.globalState.get('toggleHiddenNotCommentSymbol', false);
+		this.toggleHiddenNotCommentSymbol = this.context.globalState.get('toggleHiddenNotCommentSymbol', false);
 
-		this.handleStateChange() 
-		
+		this.handleStateChange()
+
 		commands.registerCommand('outline-map.toggleHiddenNotCommentSymbolNotifyStateChange', this.handleStateChange.bind(this));
 
 
@@ -148,12 +148,12 @@ export class OutlineView implements WebviewViewProvider {
 					const { position, expand } = msg.data;
 					const start = new Position(position.line, 0);
 					editor.selection = new Selection(start, start);
-					if (expand == undefined){
-						return 
+					if (expand == undefined) {
+						return
 					}
 					if (expand) {
 						// console.log(position,"unfold");
-						
+
 						commands.executeCommand('editor.unfold', position);
 					} else {
 						// console.log(position,"fold");
@@ -161,7 +161,7 @@ export class OutlineView implements WebviewViewProvider {
 					}
 
 
-					
+
 				}
 			}
 		});
@@ -487,7 +487,7 @@ export class OutlineView implements WebviewViewProvider {
 		if (!this.isValidDocument(textDocument)) { // Switched to a non-supported document like output
 			return;
 		}
-		
+
 		const newOutlineTree = new OutlineTree(textDocument, this.regionProvider, this.sortby);
 		newOutlineTree.toggleHiddenNotCommentSymbol = this.toggleHiddenNotCommentSymbol
 		newOutlineTree.updateSymbols().then(() => {
@@ -534,8 +534,8 @@ export class OutlineView implements WebviewViewProvider {
 
 function recursiveInvisbleNotCommentSymbol(textDocument: TextDocument, symbols: DocumentSymbol[]) {
 	// 遍历 symbol的detail有没有值,没有值就去除这个symbol
-	for (let i = symbols.length - 1; i >= 0; i--){
-		if (symbols[i].detail === ''){
+	for (let i = symbols.length - 1; i >= 0; i--) {
+		if (symbols[i].detail === '') {
 			symbols.splice(i, 1);
 		} else if (symbols[i].children) {
 			recursiveInvisbleNotCommentSymbol(textDocument, symbols[i].children);
@@ -589,7 +589,7 @@ function recursiveModificationSymbols(textDocument: TextDocument, symbols: Docum
 				const languageId: keyof typeof commentValue = textDocument.languageId as keyof typeof commentValue;
 
 				// 正则判断并提取注释内容,舍弃注释符号和前后空格
-				const reg = new RegExp(`${commentValue[languageId]}\\s*(.*)\\s*`);
+				const reg = new RegExp(`^\\s*${commentValue[languageId]}\\s*(.*)\\s*`);
 				if (reg.test(lineString)
 					&& !lineString.includes("# group")
 					&& !lineString.includes("# endgroup")
@@ -671,7 +671,7 @@ export class OutlineTree {
 		}
 
 
-	if (docSymbols) {
+		if (docSymbols) {
 			config.debug() && console.log(`[Outline-map]: Got symbols from ${this.textDocument.uri.toString()}.`, docSymbols);
 			this.nodes = SymbolNode.fromDocumentSymbols(docSymbols, this.sortBy);
 			// Reset attempts
