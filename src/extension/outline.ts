@@ -570,8 +570,9 @@ function recursiveModificationSymbols(textDocument: TextDocument, symbols: Docum
 					symbol.kind = SymbolKind.Key;
 				}
 			}
-
 		}
+
+
 
 		if (textDocument.languageId === 'python'
 			|| textDocument.languageId === 'javascript'
@@ -600,6 +601,26 @@ function recursiveModificationSymbols(textDocument: TextDocument, symbols: Docum
 						symbol.detail = comment[1];
 					}
 				}
+			}
+		}
+
+		if (textDocument.languageId === 'javascript' || textDocument.languageId === 'typescript') {
+
+			// 替换callback函数的name为注释名,注释换成“callback ”+ 之前的名字,没有注释名, 就用"callback"代替, 类型改成Struct
+			if (symbol.kind === SymbolKind.Function) {
+				if (symbol.name.includes('(')) {
+					if (symbol.detail) {
+						const name = symbol.detail;
+						symbol.detail = 'callback ' + symbol.name;
+						symbol.name = name
+					}else{
+						symbol.name = 'callback'
+					}
+
+					symbol.kind = SymbolKind.Struct;
+
+				}
+
 			}
 		}
 

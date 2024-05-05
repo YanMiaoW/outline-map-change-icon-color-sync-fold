@@ -25,6 +25,7 @@ cmd shift p 打开命令行, 选择 user settings.json , 尾部添加以下配�
         "symbolIcon.constructorForeground":"#569cd6",
         "symbolIcon.constantForeground": "#4fc1ff",
         "symbolIcon.keyForeground": "#ee9d28",
+        "symbolIcon.structForeground": "#b7fa70", 
         "symbolIcon": "#ff0000"
 
     },
@@ -39,8 +40,8 @@ cmd shift p 打开命令行, 选择 user settings.json , 尾部添加以下配�
 
 ```bash
 npm install
-npm run package-web
 npm install -g vsce
+npm run package-web
 vsce package
 ```
 
